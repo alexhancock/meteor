@@ -333,10 +333,16 @@ Fiber(function () {
     process.exit(1);
   };
 
-  var runCommand = function (cmd, showHelp) {
+  var runCommandWithArgs = function (cmd, args) {
+    return runCommand(cmd, false, args)
+  };
+
+  var runCommand = function (cmd, showHelp, args) {
     var cmdRunner = findCommand(cmd || 'run');
+    var args = args || process.argv;
+
     // Reparse args.
-    var opt = require('optimist')(process.argv.slice(2));
+    var opt = require('optimist')(args.slice(2));
     cmdRunner.argumentParser(opt);
     var showUsage = function () {
       process.stdout.write(opt.help());
@@ -1211,6 +1217,33 @@ Fiber(function () {
           banner: "Tests"
         });
       }
+    }
+  });
+
+  Commands.push({
+    name: "export-packages",
+    help: "Export one or more packages",
+    argumentParser: function (opt) {},
+    func: function (argv) {
+      var packages;
+      if (_.isEmpty(argv._)) {
+        packages = _.keys(context.library.list());
+      } else {
+        packages = _.map(argv._, function (p) {
+          if (p.indexOf('/') === -1)
+            return p;
+
+          var packageDir = path.resolve(p);
+          var packageName = path.basename(packageDir);
+          context.library.override(packageName, packageDir);
+          return packageName;
+        });
+      }
+
+      context.appDir = files.mkdtemp('app-for-export');
+      runCommandWithArgs('create', ['', '', 'app-for-export']);
+      process.chdir('app-for-export');
+      runCommandWithArgs('bundle', ['', '', 'bundle']);
     }
   });
 
